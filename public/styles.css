@@ -7,9 +7,12 @@ main {
   margin-left: 50px;
 }
 header {
-  margin-top: 20px;
+  margin-top: 40px;
 }
 main {
   display: flex;
   flex-direction: column;
+}
+h1 {
+  color: red;
 }

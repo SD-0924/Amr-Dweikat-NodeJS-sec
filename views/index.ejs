@@ -8,9 +8,17 @@
   </head>
   <body>
     <header>
-      <h1>Files in the "Data" Directory</h1>
+      <h1>Files in the "data" Directory</h1>
     </header>
-    <main><% for(let fileName of %></main>
+    <main>
+      <% if( files.length === 0) { %>
+      <p>Sorry , we can not show files because "data" directory is empty</p>
+      <% } else { %> <% for(let file of files) { %>
+      <div class="flex-item">
+        <a href="/files/<%= file%>"><%= file%></a>
+      </div>
+      <% } } %>
+    </main>
   </body>
   <script src="/scripts.js"></script>
 </html>
