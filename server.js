@@ -36,7 +36,7 @@ const fileExists = (req, res, next) => {
   const files = getFileNames();
   if (files.indexOf(req.params.filename) == -1) {
     return res.status(404).json({
-      message: "Invalid file",
+      message: "Error",
       details:
         'Either the file name is incorrect, or the file does not exist in the "data" directory, please check again',
     });
@@ -46,9 +46,9 @@ const fileExists = (req, res, next) => {
 
 // Middleware to check whether the body data is in JSON format
 const validateBodyData = (req, res, next) => {
-  if (!req.body) {
+  if (req.body !== undefined) {
     return res.status(400).json({
-      message: "Invalid body data",
+      message: "Error",
       details: "The request body should be in JSON format",
     });
   }
@@ -59,20 +59,43 @@ const validateBodyData = (req, res, next) => {
 const validateFileNameInBody = (req, res, next) => {
   if (!req.body.hasOwnProperty("name")) {
     return res.status(400).json({
-      message: "Invalid body data",
+      message: "Error",
       details:
         "The request body should contain a 'name' property, which represents the file name you want to create",
     });
   } else if (!req.body.name) {
+    // here you need to check name
     return res.status(400).json({
-      message: "Invalid file name",
-      details:
-        "You should provide 'name' property, which represents the file name you want to create",
+      message: "Error",
+      details: "Enter valid file name",
     });
   }
+  next();
 };
-const doesFileExist = (req, res, next) => {};
-const validateFileContentInBody = (req, res, next) => {};
+
+// Middleware to check the content of file
+const validateFileContentInBody = (req, res, next) => {
+  if (!req.body.content) {
+    return res.status(400).json({
+      message: "Error",
+      details: "Please enter valid content for the file",
+    });
+  }
+  next();
+};
+
+// Middleware to check if file already exist or not
+const doesFileExist = (req, res, next) => {
+  const files = getFileNames();
+  if (files.indexOf(req.body.name) === -1) {
+    return res.status(409).json({
+      message: "Error",
+      details:
+        "The file that you are trying to create it is already exist please enter different name",
+    });
+  }
+  next();
+};
 
 // Define a POST route to create a new file with a specified name and content
 app.post(
@@ -81,8 +104,8 @@ app.post(
     express.json(),
     validateBodyData,
     validateFileNameInBody,
-    doesFileExist,
     validateFileContentInBody,
+    doesFileExist,
   ],
   (req, res) => {
     const data = fs.writeFileSync(`./data/${req.body.name}`, req.body.content);
