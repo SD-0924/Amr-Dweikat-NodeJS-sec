@@ -3,16 +3,35 @@ body {
   padding: 0;
 }
 header,
-main {
+main,
+.detailsContainer {
   margin-left: 50px;
 }
-header {
+header,
+.detailsContainer {
   margin-top: 40px;
+  font-size: 30px;
 }
 main {
   display: flex;
   flex-direction: column;
+  gap: 20px;
 }
-h1 {
+.flex-item {
+  border-left: 5px solid rgb(180, 5, 5);
+  font-size: 30px;
+  padding-left: 10px;
+}
+a,
+a:visited,
+a:active {
+  text-decoration: none;
+  color: black;
+}
+a:hover {
+  color: rgb(24, 24, 161);
+}
+.error {
   color: red;
+  font-size: 30px;
 }
