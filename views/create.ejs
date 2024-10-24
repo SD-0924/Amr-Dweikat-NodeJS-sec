@@ -8,10 +8,13 @@
   </head>
   <body>
     <h1>Create a New File</h1>
-    <form action="/files/" method="POST"></form>
-    <div class="detailsContainer">
-      <p class="fileContent"><%= fileContent%></p>
-    </div>
+    <form action="/create" method="POST">
+      <label for="fileName">File name: </label
+      ><input type="text" id="fileName" name="fileName" required />
+      <label for="fileContent">File content: </label
+      ><textarea id="fileContent" name="fileContent"></textarea>
+      <button type="submit">Submit</button>
+    </form>
   </body>
   <script src="/scripts.js"></script>
 </html>

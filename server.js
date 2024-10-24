@@ -7,6 +7,9 @@ const path = require("path");
 // Import fs module
 const fs = require("fs");
 
+// Import body-parser module
+const bodyParser = require("body-parser");
+
 // Server hostname and port
 const HOSTNAME = "localhost";
 const PORT = 3000;
@@ -36,35 +39,45 @@ app.get("/", (req, res) => {
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Function to check if file name valid or not
-const isFileNameValid = (fileName) => {
-  // Check if the filename contains illegal characters, is too long, or lacks a valid extension
-  if (
-    !fileName ||
-    /[<>:"/\\|?*]/.test(fileName) ||
-    fileName.length === 0 ||
-    fileName.length > 255 ||
-    !/\.[^<>:"/\\|?*]+$/.test(fileName)
-  ) {
+function isFileNameValid(fileName) {
+  // Check if the string is non-empty
+  if (!fileName) {
+    return false;
+  }
+
+  // Check for invalid characters
+  const invalidChars = /[<>:"/\\|?*\x00-\x1F]/;
+  if (invalidChars.test(fileName)) {
+    return false;
+  }
+
+  // Check if the file name has a valid extension
+  const extensionPattern = /\.[^\\/.]+$/; // Checks for a dot followed by at least one character
+  if (!extensionPattern.test(fileName)) {
     return false;
   }
 
   return true;
-};
+}
 
 // Middleware to check if file name valid or not
-const isValidFileName = (req, res, next) => {
-  const fileName = req.params.filename;
 
-  // Check if the filename contains illegal characters, is too long, or lacks a valid extension
-  if (!isFileNameValid(fileName)) {
-    // Invalid file name
-    return res.status(400).json({
-      message: "Error",
-      details: "Invalid file name",
-    });
-  }
+const isValidFileName = (source) => {
+  return (req, res, next) => {
+    const fileName =
+      source === "params" ? req.params.filename : req.body.fileName;
 
-  next();
+    // Check if the filename contains illegal characters, is too long, or lacks a valid extension
+    if (!isFileNameValid(fileName)) {
+      // Invalid file name
+      return res.status(400).json({
+        message: "Error",
+        details: "Invalid file name",
+      });
+    }
+
+    next();
+  };
 };
 
 // Middleware to check if file exist or not
@@ -81,15 +94,19 @@ const isFileExists = (req, res, next) => {
 };
 
 // Define a GET route to view the content of a specific file
-app.get("/files/:filename", [isValidFileName, isFileExists], (req, res) => {
-  const data = fs.readFileSync(`./data/${req.params.filename}`, "utf-8");
-  res.render("detail", { fileContent: data });
-});
+app.get(
+  "/files/:filename",
+  [isValidFileName("params"), isFileExists],
+  (req, res) => {
+    const data = fs.readFileSync(`./data/${req.params.filename}`, "utf-8");
+    res.render("detail", { fileContent: data });
+  }
+);
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-// Define a POST route to render create file page
-app.post("/create", (req, res) => {
+// Define a GET route to render create file page
+app.get("/create", (req, res) => {
   res.render("create");
 });
 
@@ -120,7 +137,7 @@ const validateFileContentInBody = (req, res, next) => {
 };
 
 // Middleware to check if file already exist or not
-const doesFileExist = (req, res, next) => {
+const doesFileAlreadyExist = (req, res, next) => {
   const files = getFileNames();
   if (files.indexOf(req.body.fileName) === -1) {
     return res.status(409).json({
@@ -132,14 +149,29 @@ const doesFileExist = (req, res, next) => {
   next();
 };
 
+// Middleware to check the content of file
+const isValidFileContent = (req, res, next) => {
+  if (req.body.fileContent === null) {
+    return res.status(400).json({
+      message: "Error",
+      details: "Invalid file content",
+    });
+  }
+
+  next();
+};
+
 // Define a POST route to create a new file with a specified name and content
 app.post(
-  "/files/:filename",
+  "/create",
   [
+    bodyParser.urlencoded({ extended: true }),
     express.json(),
     validateFileNameInBody,
     validateFileContentInBody,
-    doesFileExist,
+    isValidFileName("body"),
+    doesFileAlreadyExist,
+    isValidFileContent,
   ],
   (req, res) => {
     const data = fs.writeFileSync(
@@ -203,7 +235,7 @@ const validateNewFileContentInBody = (req, res, next) => {
     if (req.body.newFileContent === null) {
       return res.status(400).json({
         message: "Error",
-        details: "Invalid file content",
+        details: "Invalid new file content",
       });
     }
   }
@@ -214,7 +246,7 @@ const validateNewFileContentInBody = (req, res, next) => {
 app.patch(
   "/files/:filename",
   [
-    isValidFileName,
+    isValidFileName("params"),
     isFileExists,
     express.json(),
     validateFileAndContent,
@@ -256,7 +288,7 @@ app.patch(
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Define a DELETE route to delete file
-app.delete("/files/:filename", [isValidFileName], (req, res) => {
+app.delete("/files/:filename", [isValidFileName("params")], (req, res) => {
   const files = getFileNames();
   if (files.indexOf(req.params.filename) === -1) {
     return res.status(400).json({
