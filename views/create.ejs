@@ -7,14 +7,17 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <h1>Create a New File</h1>
+    <h1 class="title">Create a New File</h1>
     <form action="/create" method="POST">
-      <label for="fileName">File name: </label
-      ><input type="text" id="fileName" name="fileName" required />
-      <label for="fileContent">File content: </label
-      ><textarea id="fileContent" name="fileContent"></textarea>
+      <div>
+        <label for="fileName">File name: </label
+        ><input type="text" id="fileName" name="fileName" required />
+      </div>
+      <div id="textarea">
+        <label for="fileContent">File content: </label
+        ><textarea id="fileContent" name="fileContent"></textarea>
+      </div>
       <button type="submit">Submit</button>
     </form>
   </body>
-  <script src="/scripts.js"></script>
 </html>

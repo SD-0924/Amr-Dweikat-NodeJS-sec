@@ -118,7 +118,7 @@ const validateFileNameInBody = (req, res, next) => {
     return res.status(400).json({
       message: "Error",
       details:
-        "The request body should contain a 'fileName' property, which represents the file name you want to create",
+        "The request body should be in JSON format and contains a 'fileName' property, which represents the file name that you want to create",
     });
   }
   next();
@@ -130,7 +130,7 @@ const validateFileContentInBody = (req, res, next) => {
     return res.status(400).json({
       message: "Error",
       details:
-        "The request body should contain a 'fileContent' property, which represents the file content you want to create",
+        "The request body should be in JSON format and contains a 'fileContent' property, which represents the content of file that you want to create",
     });
   }
   next();
@@ -139,7 +139,7 @@ const validateFileContentInBody = (req, res, next) => {
 // Middleware to check if file already exist or not
 const doesFileAlreadyExist = (req, res, next) => {
   const files = getFileNames();
-  if (files.indexOf(req.body.fileName) === -1) {
+  if (files.indexOf(req.body.fileName) !== -1) {
     return res.status(409).json({
       message: "Error",
       details:
@@ -151,10 +151,14 @@ const doesFileAlreadyExist = (req, res, next) => {
 
 // Middleware to check the content of file
 const isValidFileContent = (req, res, next) => {
-  if (req.body.fileContent === null) {
+  if (
+    req.body.fileContent === null ||
+    typeof req.body.fileContent !== "string"
+  ) {
     return res.status(400).json({
       message: "Error",
-      details: "Invalid file content",
+      details:
+        "Invalid file content , make sure that the file content is 'string'",
     });
   }
 
@@ -232,10 +236,14 @@ const isFileNameTaken = (req, res, next) => {
 // Middleware to check the new content of file
 const validateNewFileContentInBody = (req, res, next) => {
   if (req.body.hasOwnProperty("newFileContent")) {
-    if (req.body.newFileContent === null) {
+    if (
+      req.body.newFileContent === null ||
+      typeof req.body.newFileContent !== "string"
+    ) {
       return res.status(400).json({
         message: "Error",
-        details: "Invalid new file content",
+        details:
+          "Invalid new file content , make sure that the new file content is 'string'",
       });
     }
   }
@@ -267,7 +275,7 @@ app.patch(
     ) {
       fs.writeFileSync(
         `./data/${req.body.newFileName}`,
-        String(req.body.newFileContent)
+        req.body.newFileContent
       );
     }
     if (
@@ -276,7 +284,7 @@ app.patch(
     ) {
       fs.writeFileSync(
         `./data/${req.params.filename}`,
-        String(req.body.newFileContent)
+        req.body.newFileContent
       );
     }
     res
@@ -312,6 +320,13 @@ app.use((req, res) => {
     details:
       "Please use one of the available routes: /, /create, or /files/filename",
   });
+});
+
+// Error handling middleware for syntax errors
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Invalid JSON structure" });
+  }
 });
 
 // Make the server start listening
