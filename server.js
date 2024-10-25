@@ -87,28 +87,32 @@ const isFileExists = (source) => {
       fileName = req.params.filename;
     }
     const exist = fs.existsSync(`./data/${fileName}`);
-    if (source === "post" && exist) {
-      return res.status(404).json({
-        message: "Error",
-        details:
-          "The file that you are trying to create it is already exist please enter different name",
-      });
-    } else if (source !== "post" && !exist) {
-      let errorMessage;
-      if (source === "get") {
-        errorMessage =
-          'The file that you are trying to fetch does not exist in the "data" directory, please check again';
-      } else if (source === "patch") {
-        errorMessage =
-          'The file that you are trying to modfiy does not exist in the "data" directory, please check again';
-      } else {
-        errorMessage =
-          "The file that you are trying to delete it does not exist in 'data' folder";
+    if (source === "post") {
+      if (exist) {
+        return res.status(404).json({
+          message: "Error",
+          details:
+            "The file that you are trying to create it is already exist please enter different name",
+        });
       }
-      return res.status(404).json({
-        message: "Error",
-        details: errorMessage,
-      });
+    } else {
+      if (!exist) {
+        let errorMessage;
+        if (source === "get") {
+          errorMessage =
+            'The file that you are trying to fetch does not exist in the "data" directory, please check again';
+        } else if (source === "patch") {
+          errorMessage =
+            'The file that you are trying to modfiy does not exist in the "data" directory, please check again';
+        } else {
+          errorMessage =
+            "The file that you are trying to delete it does not exist in 'data' folder";
+        }
+        return res.status(404).json({
+          message: "Error",
+          details: errorMessage,
+        });
+      }
     }
     next();
   };
@@ -195,7 +199,7 @@ app.post(
       .json({ message: "Sucess", details: "File created successfully" });
   }
 );
-// app.post last route checked
+
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Middleware to check if body request contains either new file name or new content
@@ -216,7 +220,7 @@ const validateFileAndContent = (req, res, next) => {
 // Middleware to check if new file name valid or not if it exists
 const validateNewFileName = (req, res, next) => {
   if (req.body.hasOwnProperty("newFileName")) {
-    if (!isFileNameValid(req.body.newFileName)) {
+    if (!isValidFileName(req.body.newFileName)) {
       return res.status(400).json({
         message: "Error",
         details: "Invalid new file name",
