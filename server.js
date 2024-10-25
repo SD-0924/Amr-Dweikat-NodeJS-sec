@@ -14,9 +14,6 @@ const bodyParser = require("body-parser");
 const HOSTNAME = "localhost";
 const PORT = 3000;
 
-// This function to bring all file names inside data folder
-const getFileNames = () => fs.readdirSync("./data", "utf-8");
-
 // Initialize an Express application
 const app = express();
 
@@ -31,7 +28,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // Define a GET route to list all files in the "data" directory
 app.get("/", (req, res) => {
   // Get all file names inside the data directory
-  const fileNames = getFileNames();
+  const fileNames = fs.readdirSync("./data", "utf-8");
   // Render homepage
   res.render("index", { files: fileNames });
 });
@@ -39,7 +36,7 @@ app.get("/", (req, res) => {
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Function to check if file name valid or not
-function isFileNameValid(fileName) {
+function isValidFileName(fileName) {
   // Check if the string is non-empty
   if (!fileName) {
     return false;
@@ -62,13 +59,13 @@ function isFileNameValid(fileName) {
 
 // Middleware to check if file name valid or not
 
-const isValidFileName = (source) => {
+const checkFileName = (source) => {
   return (req, res, next) => {
     const fileName =
       source === "params" ? req.params.filename : req.body.fileName;
 
     // Check if the filename contains illegal characters, is too long, or lacks a valid extension
-    if (!isFileNameValid(fileName)) {
+    if (!isValidFileName(fileName)) {
       // Invalid file name
       return res.status(400).json({
         message: "Error",
@@ -81,22 +78,46 @@ const isValidFileName = (source) => {
 };
 
 // Middleware to check if file exist or not
-const isFileExists = (req, res, next) => {
-  const files = getFileNames();
-  if (files.indexOf(req.params.filename) == -1) {
-    return res.status(404).json({
-      message: "Error",
-      details:
-        'The file does not exist in the "data" directory, please check again',
-    });
-  }
-  next();
+const isFileExists = (source) => {
+  return (req, res, next) => {
+    let fileName;
+    if (source === "post") {
+      fileName = req.body.fileName;
+    } else {
+      fileName = req.params.filename;
+    }
+    const exist = fs.existsSync(`./data/${fileName}`);
+    if (source === "post" && exist) {
+      return res.status(404).json({
+        message: "Error",
+        details:
+          "The file that you are trying to create it is already exist please enter different name",
+      });
+    } else if (source !== "post" && !exist) {
+      let errorMessage;
+      if (source === "get") {
+        errorMessage =
+          'The file that you are trying to fetch does not exist in the "data" directory, please check again';
+      } else if (source === "patch") {
+        errorMessage =
+          'The file that you are trying to modfiy does not exist in the "data" directory, please check again';
+      } else {
+        errorMessage =
+          "The file that you are trying to delete it does not exist in 'data' folder";
+      }
+      return res.status(404).json({
+        message: "Error",
+        details: errorMessage,
+      });
+    }
+    next();
+  };
 };
 
 // Define a GET route to view the content of a specific file
 app.get(
   "/files/:filename",
-  [isValidFileName("params"), isFileExists],
+  [checkFileName("params"), isFileExists("get")],
   (req, res) => {
     const data = fs.readFileSync(`./data/${req.params.filename}`, "utf-8");
     res.render("detail", { fileContent: data });
@@ -136,19 +157,6 @@ const validateFileContentInBody = (req, res, next) => {
   next();
 };
 
-// Middleware to check if file already exist or not
-const doesFileAlreadyExist = (req, res, next) => {
-  const files = getFileNames();
-  if (files.indexOf(req.body.fileName) !== -1) {
-    return res.status(409).json({
-      message: "Error",
-      details:
-        "The file that you are trying to create it is already exist please enter different name",
-    });
-  }
-  next();
-};
-
 // Middleware to check the content of file
 const isValidFileContent = (req, res, next) => {
   if (
@@ -173,8 +181,8 @@ app.post(
     express.json(),
     validateFileNameInBody,
     validateFileContentInBody,
-    isValidFileName("body"),
-    doesFileAlreadyExist,
+    checkFileName("body"),
+    isFileExists("post"),
     isValidFileContent,
   ],
   (req, res) => {
@@ -187,7 +195,7 @@ app.post(
       .json({ message: "Sucess", details: "File created successfully" });
   }
 );
-
+// app.post last route checked
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Middleware to check if body request contains either new file name or new content
@@ -199,7 +207,7 @@ const validateFileAndContent = (req, res, next) => {
     return res.status(400).json({
       message: "Error",
       details:
-        "Your body request should be in JSON format and contains either 'newFileName' property or 'newFileContent' property or both",
+        "Your body request should be in JSON format and contains either 'newFileName' property or 'newFileContent' property or both of them",
     });
   }
   next();
@@ -221,8 +229,7 @@ const validateNewFileName = (req, res, next) => {
 // Middleware to check if new file name same as file that alreay exist
 const isFileNameTaken = (req, res, next) => {
   if (req.body.hasOwnProperty("newFileName")) {
-    const files = getFileNames();
-    if (files.indexOf(req.body.newFileName) !== -1) {
+    if (fs.existsSync(`./data/${req.body.newFileName}`)) {
       return res.status(400).json({
         message: "Error",
         details:
@@ -254,8 +261,8 @@ const validateNewFileContentInBody = (req, res, next) => {
 app.patch(
   "/files/:filename",
   [
-    isValidFileName("params"),
-    isFileExists,
+    checkFileName("params"),
+    isFileExists("patch"),
     express.json(),
     validateFileAndContent,
     validateNewFileName,
@@ -296,20 +303,16 @@ app.patch(
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 // Define a DELETE route to delete file
-app.delete("/files/:filename", [isValidFileName("params")], (req, res) => {
-  const files = getFileNames();
-  if (files.indexOf(req.params.filename) === -1) {
-    return res.status(400).json({
-      message: "Error",
-      details:
-        "The file that you are trying to delete it not exist in 'data' folder",
-    });
+app.delete(
+  "/files/:filename",
+  [checkFileName("params"), isFileExists("delete")],
+  (req, res) => {
+    fs.unlinkSync(`./data/${req.params.filename}`);
+    res
+      .status(200)
+      .json({ message: "Sucess", details: "File deleted successfully" });
   }
-  fs.unlinkSync(`./data/${req.params.filename}`);
-  res
-    .status(200)
-    .json({ message: "Sucess", details: "File deleted successfully" });
-});
+);
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
